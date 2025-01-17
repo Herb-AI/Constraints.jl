@@ -168,10 +168,22 @@ The '(RuleNode, AbstractHole)' case could still include two nodes of type `Abstr
 """
 function pattern_match(h1::Union{RuleNode, AbstractHole}, h2::Union{RuleNode, AbstractHole}, vars::Dict{Symbol, AbstractRuleNode})::PatternMatchResult
     @match (isfilled(h1), isfilled(h2)) begin
-        #(RuleNode, RuleNode)
+        #(RuleNode | Hole [domain size == 1], RuleNode | Hole [domain size == 1])
         (true, true) => begin
             if get_rule(h1) ≠ get_rule(h2)
                 return PatternMatchHardFail()
+            end
+            if h1 isa Hole && !isempty(get_children(h2))
+                # domain of hole must have been 1 because it `isfilled`
+                # but still has no children, so there's nothing more that
+                # can be deduced before the hole is simplified
+                return PatternMatchSoftFail(h1)
+            end
+            if h2 isa Hole && !isempty(get_children(h1))
+                # domain of hole must have been 1 because it `isfilled`
+                # but still has no children, so there's nothing more that
+                # can be deduced before the hole is simplified
+                return PatternMatchSoftFail(h2)
             end
             return pattern_match(get_children(h1), get_children(h2), vars)
         end
